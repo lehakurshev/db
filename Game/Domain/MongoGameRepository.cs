@@ -1,45 +1,55 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using MongoDB.Driver;
 
 namespace Game.Domain
 {
-    // TODO Сделать по аналогии с MongoUserRepository
     public class MongoGameRepository : IGameRepository
     {
         public const string CollectionName = "games";
+        private readonly IMongoCollection<GameEntity> _gamesCollection;
 
         public MongoGameRepository(IMongoDatabase db)
         {
+            _gamesCollection = db.GetCollection<GameEntity>(CollectionName);
         }
 
         public GameEntity Insert(GameEntity game)
         {
-            throw new NotImplementedException();
+            _gamesCollection.InsertOne(game);
+            return game; 
         }
 
         public GameEntity FindById(Guid gameId)
         {
-            throw new NotImplementedException();
+            return _gamesCollection.Find(game => game.Id == gameId).FirstOrDefault();
         }
 
         public void Update(GameEntity game)
         {
-            throw new NotImplementedException();
+            var result = _gamesCollection.ReplaceOne(g => g.Id == game.Id, game);
+            if (!result.IsAcknowledged)
+            {
+                throw new Exception("Update failed.");
+            }
         }
 
-        // Возвращает не более чем limit игр со статусом GameStatus.WaitingToStart
         public IList<GameEntity> FindWaitingToStart(int limit)
         {
-            //TODO: Используй Find и Limit
-            throw new NotImplementedException();
+            return _gamesCollection
+                .Find(game => game.Status == GameStatus.WaitingToStart)
+                .Limit(limit)
+                .ToList();
         }
 
-        // Обновляет игру, если она находится в статусе GameStatus.WaitingToStart
         public bool TryUpdateWaitingToStart(GameEntity game)
         {
-            //TODO: Для проверки успешности используй IsAcknowledged и ModifiedCount из результата
-            throw new NotImplementedException();
+            var result = _gamesCollection.ReplaceOne(
+                g => g.Id == game.Id && g.Status == GameStatus.WaitingToStart,
+                game);
+
+            return result.IsAcknowledged && result.ModifiedCount > 0;
         }
     }
 }
