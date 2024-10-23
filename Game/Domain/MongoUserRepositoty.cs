@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using MongoDB.Driver;
 
 namespace Game.Domain
@@ -9,6 +10,8 @@ namespace Game.Domain
     {
         private readonly IMongoCollection<UserEntity> userCollection;
         public const string CollectionName = "users";
+
+        public static readonly Object Lock = new();
 
         public MongoUserRepository(IMongoDatabase database)
         {
@@ -35,17 +38,12 @@ namespace Game.Domain
 
         public UserEntity GetOrCreateByLogin(string login)
         {
-            try
+            lock(Lock)
             {
-                // Поиск пользователя по логину
                 return userCollection.Find(user => user.Login == login).FirstOrDefault()
                        ?? Insert(new UserEntity(Guid.NewGuid()) { Login = login });
             }
-            catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
-            {
-                // Если возникает ошибка дублирования ключа, повторный поиск
-                return userCollection.Find(user => user.Login == login).FirstOrDefault()!;
-            }
+
         }
 
         public void Update(UserEntity user)
